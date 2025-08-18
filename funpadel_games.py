@@ -5,57 +5,82 @@ from math import floor
 import random
 
 current_day = dt.today().strftime("%d/%m/%Y")
-st.title(f"🎾 Fun Games - {current_day} 🥎")
+st.title(f"🎾 Fun Games - {current_day} 🥎", width="content")
+st.set_page_config(
+    page_title=f"Fun Games - {current_day}", 
+    page_icon="🎾",
+    initial_sidebar_state="auto",
+    layout="wide")
 
 def main():
     with st.sidebar:
-        raw_input = st.text_input("Pf copia aqui a mensage do grupo WhatsApp, depois de fechado:")
+        raw_input = st.text_input("Pf copia aqui a mensagem do grupo WhatsApp, depois de fechado:")
+        initialize_input(raw_input)
 
-    if raw_input:
-        women_list, men_list, fields_list = message_parse(raw_input)
-
+    if st.session_state.raw_input:
+        women_list, men_list, fields_list = message_parse(st.session_state.raw_input)
         get_button_grid(len(women_list))
 
         initialize_fields_dict(len(fields_list))
         initialize_players(men_list, women_list)
         
         # Create Buttons
-        st.write("### Jogadoras: ###")
-        cols = st.columns(st.session_state.grid_size_list[0])
-        for n in range(st.session_state.grid_size_list[0]):
-            for k in range(st.session_state.grid_size_list[1]):
-                with cols[n]:
-                    st.button(f"{st.session_state.women_list_nested[n][k]}", 
-                              on_click=on_button_click, 
-                              kwargs={"button": st.session_state.women_list_nested[n][k]}, 
-                              disabled=st.session_state.women_list_nested[n][k] in st.session_state.player_list_removed)
+        cols_base = st.columns([3, 2], border=True, width=2000)
 
-        st.write("### Jogadores: ###")
-        cols = st.columns(st.session_state.grid_size_list[0])
-        for n in range(st.session_state.grid_size_list[0]):
-            for k in range(st.session_state.grid_size_list[1]):
-                with cols[n]:
-                    st.button(f"{st.session_state.men_list_nested[n][k]}", 
-                              on_click=on_button_click, 
-                              kwargs={"button": st.session_state.men_list_nested[n][k]}, 
-                              disabled=st.session_state.men_list_nested[n][k] in st.session_state.player_list_removed)
+        with cols_base[0]:
+            st.write("### Jogadoras: ###")
+            cols = st.columns(st.session_state.grid_size_list[0])
+
+            for n in range(st.session_state.grid_size_list[0]):
+                for k in range(st.session_state.grid_size_list[1]):
+                    with cols[n]:
+                        st.button(f"{st.session_state.women_list_nested[n][k]}", 
+                                on_click=on_button_click, 
+                                kwargs={"button": st.session_state.women_list_nested[n][k]}, 
+                                disabled=st.session_state.women_list_nested[n][k] in st.session_state.player_list_removed)
+
+            st.write("### Jogadores: ###")
+            cols = st.columns(st.session_state.grid_size_list[0])
+            for n in range(st.session_state.grid_size_list[0]):
+                for k in range(st.session_state.grid_size_list[1]):
+                    with cols[n]:
+                        st.button(f"{st.session_state.men_list_nested[n][k]}", 
+                                on_click=on_button_click, 
+                                kwargs={"button": st.session_state.men_list_nested[n][k]}, 
+                                disabled=st.session_state.men_list_nested[n][k] in st.session_state.player_list_removed)
 
         if "last_clicked" in st.session_state:
-            # st.write(f"Jogador Escolhido: **{st.session_state.last_clicked}**")
             sel_player = st.session_state.last_clicked
-            st.write(sel_player)
+            sel_field = assign_players_to_field(sel_player, men_list, women_list)
 
-            assign_players_to_field(sel_player, men_list, women_list)
-            st.write(st.session_state.player_list_removed)
-            # get_button_grid(len(st.session_state.women_list))
-            # st.session_state.women_list_nested = reshape_list(st.session_state.women_list, st.session_state.grid_size_list)
-            # st.session_state.men_list_nested = reshape_list(st.session_state.men_list, st.session_state.grid_size_list)
+            with cols_base[1]:
+                st.write(f"Jogador Escolhido: **{st.session_state.last_clicked}**")
+                st.write(f"Campo Atribuído: **{sel_field if sel_field else "-"}**")
+                st.session_state.current_fields = merge_dicts(st.session_state.field_dict_men, st.session_state.field_dict_women)
 
-            print(st.session_state.field_dict_men, st.session_state.field_dict_women)
+                for key in st.session_state.current_fields.keys():
+                    players_merged = st.session_state.current_fields[key][0] + st.session_state.current_fields[key][1]
+                    st.write(f"**Campo {key}**: {', '.join([x for x in players_merged])}")
 
-        if len(st.session_state.player_list_removed) == 2 * len(women_list):
-            final_fields = merge_dicts(st.session_state.field_dict_men, st.session_state.field_dict_women)
-            st.write(final_fields)
+    return
+
+
+def clean_session_state():
+    for key in st.session_state.keys():
+        del st.session_state[key]
+    
+    return
+
+
+def initialize_input(raw_input):
+    if "raw_input" not in st.session_state:
+        st.session_state.raw_input = raw_input
+    else:
+        if st.session_state.raw_input != raw_input:
+            clean_session_state()
+            st.session_state.raw_input = raw_input
+            
+
     return
 
 
@@ -74,7 +99,13 @@ def split_players_list(player_string_raw):
 def message_parse(message_raw):
     message_raw_clean = message_raw.lower().replace('\n', '')
 
-    split1 = message_raw_clean.split("senhoras")
+    split0 = message_raw_clean.split("suplentes")
+    try:
+        spare_string_raw = split0[1]
+    except IndexError:
+        print("No Spare Players found")            
+
+    split1 = split0[0].split("senhoras")
     women_string_raw = split1[1]
 
     split2 = split1[0].split("senhores")
@@ -108,6 +139,7 @@ def initialize_fields_dict(n_fields):
         st.session_state.field_dict_women = field_dict_women
 
     return
+
 
 def factors(n):
     factors = set(reduce(
@@ -151,15 +183,15 @@ def get_current_fields(player_gender):
         if len(current_fields):
             return current_fields
         else:
-            st.error(f"Atenção - Já não há campos disponíveis para os Jogadores: {st.session_state.field_dict_men}")
-            st.stop()
+            # st.error(f"Atenção - Já não há campos disponíveis para os Jogadores: {st.session_state.field_dict_men}")
+            pass
     elif player_gender == 'women':
         current_fields = [x for x in st.session_state.field_dict_women.keys() if len(st.session_state.field_dict_women[x]) < 2]
         if len(current_fields):
             return current_fields
         else:
-            st.error(f"Atenção - Já não há campos disponíveis para as Jogadoras: {st.session_state.field_dict_women}")
-            st.stop()
+            # st.error(f"Atenção - Já não há campos disponíveis para as Jogadoras: {st.session_state.field_dict_women}")
+            pass
     return
 
 def initialize_players(men_list, women_list):
@@ -193,7 +225,7 @@ def remove_player_from_list(player):
         # st.session_state.women_list_nested = [[subelt for subelt in elt if subelt != player] for elt in st.session_state.women_list_nested]
     st.session_state.player_list_removed.append(player)
 
-    st.write(st.session_state.player_list_removed)
+    # st.write(st.session_state.player_list_removed)
     return    
 
 def initialize_grid(grid_size_list):
@@ -203,28 +235,30 @@ def initialize_grid(grid_size_list):
     return
 
 def assign_players_to_field(sel_player, men_list, women_list):
+    sel_field = None
+
     if sel_player in men_list:
-        st.write("men")
+        # st.write("men")
         current_fields_men = get_current_fields("men")
-        # st.write(f"Available fields men: {current_fields_men}")
-        sel_field_men = random.choice(current_fields_men)
-        # st.write(f"sel_field_men {sel_field_men}")
-        st.session_state.field_dict_men[sel_field_men].append(sel_player)
-        # st.write(f"field_dict_men {st.session_state.field_dict_men}")
+        if current_fields_men:
+            sel_field = random.choice(current_fields_men)
+            st.session_state.field_dict_men[sel_field].append(sel_player)
+        else:
+            pass
         # remove_player_from_list("men", sel_player)
     elif sel_player in women_list:
-        st.write("women")
+        # st.write("women")
         current_fields_women = get_current_fields("women")
-        # st.write(f"Available fields women: {current_fields_women}")
-        sel_field_women = random.choice(current_fields_women)
-        # st.write(f"sel_field_women {sel_field_women}")
-        st.session_state.field_dict_women[sel_field_women].append(sel_player)
-        # st.write(f"field_dict_woman {st.session_state.field_dict_women}")
+        if current_fields_women:
+            sel_field = random.choice(current_fields_women)
+            st.session_state.field_dict_women[sel_field].append(sel_player)
+        else:
+            pass
         # remove_player_from_list("women", sel_player)
     else:
         st.write("Nome não encontrado")
         
-    return st.session_state.field_dict_men, st.session_state.field_dict_women
+    return sel_field
 
 def merge_dicts(d1, d2):
     merged = {}
