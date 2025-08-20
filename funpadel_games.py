@@ -60,7 +60,10 @@ def main():
 
                 for key in st.session_state.current_fields.keys():
                     players_merged = st.session_state.current_fields[key][0] + st.session_state.current_fields[key][1]
-                    st.write(f"**Campo {key}**: {', '.join([x for x in players_merged])}")
+                    field_message = ', '.join([x for x in players_merged])
+                    if len(players_merged) == 4:
+                        field_message += " 🔒"
+                    st.write(f"**Campo {key}**: {field_message}")
 
     return
 
@@ -139,7 +142,6 @@ def initialize_fields_dict(n_fields):
         st.session_state.field_dict_women = field_dict_women
 
     return
-
 
 def factors(n):
     factors = set(reduce(
@@ -271,11 +273,6 @@ def merge_dicts(d1, d2):
     for key in d2.keys() - d1.keys():
         merged[key] = d2[key]
     return merged
-# POC
-# Get players from whatsapp message - done
-# Get fields from whatsapp message - done
-# List Players - done
-# Assign random field from remaining ones
 
 # v2
 # Allow change of fields
