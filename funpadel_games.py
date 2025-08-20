@@ -14,8 +14,12 @@ st.set_page_config(
 
 def main():
     with st.sidebar:
-        raw_input = st.text_input("Pf copia aqui a mensagem do grupo WhatsApp, depois de fechado:")
-        initialize_input(raw_input)
+        raw_input = st.text_input(
+            "Pf copia aqui a mensagem do grupo WhatsApp, depois de fechado:", 
+            on_change=clean_session_state)
+        # initialize_input(raw_input)
+        st.button("Carregar mensagem", 
+                  on_click=initialize_input(raw_input))
 
     if st.session_state.raw_input:
         women_list, men_list, fields_list = message_parse(st.session_state.raw_input)
@@ -51,11 +55,11 @@ def main():
 
         if "last_clicked" in st.session_state:
             sel_player = st.session_state.last_clicked
-            sel_field = assign_players_to_field(sel_player, men_list, women_list)
+            assign_players_to_field(sel_player, men_list, women_list)
 
             with cols_base[1]:
                 st.write(f"Jogador Escolhido: **{st.session_state.last_clicked}**")
-                st.write(f"Campo Atribuído: **{sel_field if sel_field else "-"}**")
+                st.write(f"Campo Atribuído: **{st.session_state.sel_field}**")
                 st.session_state.current_fields = merge_dicts(st.session_state.field_dict_men, st.session_state.field_dict_women)
 
                 for key in st.session_state.current_fields.keys():
@@ -77,12 +81,7 @@ def clean_session_state():
 
 def initialize_input(raw_input):
     if "raw_input" not in st.session_state:
-        st.session_state.raw_input = raw_input
-    else:
-        if st.session_state.raw_input != raw_input:
-            clean_session_state()
-            st.session_state.raw_input = raw_input
-            
+        st.session_state.raw_input = raw_input           
 
     return
 
@@ -169,6 +168,9 @@ def get_button_grid(n_players):
 
     return 
 
+def flatten(nested_list):
+    return [x for xs in nested_list for x in xs]
+
 def reshape_list(flat_list, sizes):
     result = []
     index = 0
@@ -237,30 +239,38 @@ def initialize_grid(grid_size_list):
     return
 
 def assign_players_to_field(sel_player, men_list, women_list):
-    sel_field = None
+    initialize_field()
 
-    if sel_player in men_list:
-        # st.write("men")
-        current_fields_men = get_current_fields("men")
-        if current_fields_men:
-            sel_field = random.choice(current_fields_men)
-            st.session_state.field_dict_men[sel_field].append(sel_player)
+    assigned_players_list = flatten(list(st.session_state.field_dict_men.values()) + list(st.session_state.field_dict_women.values()))
+
+    if sel_player not in assigned_players_list:
+        if sel_player in men_list:
+            # st.write("men")
+            current_fields_men = get_current_fields("men")
+            if current_fields_men:
+                sel_field = random.choice(current_fields_men)
+                st.session_state.field_dict_men[sel_field].append(sel_player)
+            else:
+                pass
+        elif sel_player in women_list:
+            # st.write("women")
+            current_fields_women = get_current_fields("women")
+            if current_fields_women:
+                sel_field = random.choice(current_fields_women)
+                st.session_state.field_dict_women[sel_field].append(sel_player)
+            else:
+                pass
         else:
-            pass
-        # remove_player_from_list("men", sel_player)
-    elif sel_player in women_list:
-        # st.write("women")
-        current_fields_women = get_current_fields("women")
-        if current_fields_women:
-            sel_field = random.choice(current_fields_women)
-            st.session_state.field_dict_women[sel_field].append(sel_player)
-        else:
-            pass
-        # remove_player_from_list("women", sel_player)
-    else:
-        st.write("Nome não encontrado")
-        
-    return sel_field
+            st.write("Nome não encontrado")
+    
+        st.session_state.sel_field = sel_field
+    return st.session_state.sel_field
+
+
+def initialize_field():
+    if "sel_field" not in st.session_state:
+        st.session_state.sel_field = None
+    return
 
 def merge_dicts(d1, d2):
     merged = {}
@@ -273,6 +283,9 @@ def merge_dicts(d1, d2):
     for key in d2.keys() - d1.keys():
         merged[key] = d2[key]
     return merged
+
+# v1 - Mobile improvements:
+# Add a clear message button
 
 # v2
 # Allow change of fields
